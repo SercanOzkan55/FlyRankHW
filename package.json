@@ -1,0 +1,9 @@
+{
+  "name": "smallest-possible-backend",
+  "version": "1.0.0",
+  "description": "A tiny Node.js backend with two JSON endpoints.",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  }
+}
