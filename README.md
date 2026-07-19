@@ -10,3 +10,6 @@ General homework folder, one subfolder per assignment.
   [`a3/NOTES.md`](a3/NOTES.md) for the write-up.
 - [`identity-kit/`](identity-kit/) — W3 Identity Kit: type, palette, logo
   mark, and style note as a single self-contained page.
+- [`curated-images/`](curated-images/) — W3 Curate Your Images: the kept
+  image set, what was rejected and why, and where real captures beat
+  generated ones. See [`curated-images/README.md`](curated-images/README.md).
