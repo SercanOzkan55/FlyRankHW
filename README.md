@@ -1,25 +1,7 @@
-# Smallest Possible Backend
+# FlyRankHW
 
-A tiny Node.js server with two JSON endpoints.
+General homework folder, one subfolder per assignment.
 
-## Run
-
-```bash
-npm start
-```
-
-Or without npm:
-
-```bash
-node server.js
-```
-
-## Endpoints
-
-```bash
-curl http://localhost:3000/
-curl http://localhost:3000/time
-```
-
-- `GET /` returns a hello message.
-- `GET /time` returns the current server time.
+- [`w1/`](w1/) — Smallest Possible Backend: a tiny Node.js server with two JSON endpoints.
+- [`a2/`](a2/) — A2 Task Service: Express + TypeScript API with a swappable in-memory /
+  Postgres repository, run via Docker Compose (app + db + persistent volume).
