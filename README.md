@@ -8,6 +8,9 @@ General homework folder, one subfolder per assignment.
 - [`a3/`](a3/) — A3 Scraper: polite fetch → parse → extract → clean → structure
   pipeline against books.toscrape.com, robots.txt-aware and rate-limited. See
   [`a3/NOTES.md`](a3/NOTES.md) for the write-up.
+- [`a4-auth/`](a4-auth/) — A4 Auth Login & Protect: Express + TypeScript API using
+  Supabase Auth for signup/login/logout, a reusable bearer-token middleware
+  guarding `/protected/*`, and Swagger UI at `/docs`.
 - [`identity-kit/`](identity-kit/) — W3 Identity Kit: type, palette, logo
   mark, and style note as a single self-contained page.
 - [`curated-images/`](curated-images/) — W3 Curate Your Images: the kept
