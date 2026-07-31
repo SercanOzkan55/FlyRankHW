@@ -20,17 +20,3 @@ export function createSupabaseClient(config: AppConfig): SupabaseClient {
     SERVER_CLIENT_OPTIONS
   );
 }
-
-/**
- * A client that acts on behalf of one logged-in user by forwarding their
- * access token, used for calls that must run in that user's context.
- */
-export function createUserScopedClient(
-  config: AppConfig,
-  accessToken: string
-): SupabaseClient {
-  return createClient(config.supabaseUrl, config.supabaseKey, {
-    ...SERVER_CLIENT_OPTIONS,
-    global: { headers: { Authorization: `Bearer ${accessToken}` } },
-  });
-}

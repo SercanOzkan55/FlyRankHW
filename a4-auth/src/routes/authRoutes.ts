@@ -1,6 +1,8 @@
 import { Router } from "express";
 import { SupabaseClient } from "@supabase/supabase-js";
 import { asyncRoute } from "../asyncRoute";
+import { requireAuth } from "../middleware/requireAuth";
+import { AuthedRequest } from "../types";
 
 interface Credentials {
   email: string;
@@ -62,6 +64,21 @@ export function createAuthRouter(supabase: SupabaseClient): Router {
         expires_at: data.session.expires_at,
         user: data.user,
       });
+    })
+  );
+
+  router.post(
+    "/auth/logout",
+    requireAuth(supabase),
+    asyncRoute(async (req: AuthedRequest, res) => {
+      // Server-side sign-out: the user's own JWT authorizes revoking their
+      // session, so this works with the public anon key.
+      const { error } = await supabase.auth.admin.signOut(req.auth!.token);
+      if (error) {
+        return res.status(error.status ?? 400).json({ error: error.message });
+      }
+
+      res.status(204).send();
     })
   );
 
