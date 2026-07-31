@@ -14,7 +14,7 @@ app.use(express.json());
 app.get("/health", (_req, res) => res.json({ status: "ok" }));
 app.use(createPublicRouter());
 app.use(createAuthRouter(supabase));
-app.use(createProtectedRouter());
+app.use(createProtectedRouter(supabase));
 
 // Anything that escapes a route handler becomes a 500 without leaking internals.
 app.use((err: unknown, _req: Request, res: Response, _next: NextFunction) => {
