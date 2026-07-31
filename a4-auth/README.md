@@ -144,3 +144,80 @@ src/
   JWTs itself and does not trust their payload.
 - Login failures always return the same generic `Invalid login credentials`
   message, so the endpoint does not reveal which emails are registered.
+
+## AI vs Me (Stage 7 bonus)
+
+After finishing the six stages, I wrote a prompt from memory
+([`ai-rematch/PROMPT.md`](ai-rematch/PROMPT.md)) and had an AI assistant
+generate the same API from scratch. The result is in
+[`ai-rematch/`](ai-rematch/), unedited except for the port, so both servers
+can run side by side (mine on 3000, the AI's on 3001) and get hit with the
+same requests.
+
+### Token extraction — it handles the happy path, not the shape
+
+The AI's middleware does `authHeader.split(" ")[1]`. That covers the two
+obvious cases, and it did check for a missing header and a missing token —
+but it never checks the **scheme**. Probing both servers on
+`GET /protected/profile`:
+
+| `Authorization` header | Mine | AI version |
+| --- | --- | --- |
+| *(missing)* | `401 Access token required` | `401 Access token required` |
+| `Bearer` | `401 Access token required` | `401 Access token required` |
+| `abc123` (no scheme) | `401 Access token required` | `401 Access token required` |
+| `Basic abc123` | `401 Access token required` | `401 Invalid or expired token` |
+| `bearer abc123` (lowercase) | `401 Invalid or expired token` | `401 Invalid or expired token` |
+
+The `Basic abc123` row is the tell: the AI pulls the Basic-auth credential out
+and hands it to Supabase as if it were a JWT. The status code happens to come
+out right, but for the wrong reason — a malformed request is reported as a bad
+token, and a needless network round-trip is made on every junk header. My
+[`bearerToken.ts`](src/bearerToken.ts) rejects a non-bearer scheme before any
+network call, and compares the scheme case-insensitively as RFC 7235 requires.
+
+### Security flaws it introduced
+
+1. **Logout doesn't reliably log anyone out.** The AI calls
+   `supabase.auth.signOut()` on the shared, module-level client, ignoring the
+   token it just verified. In `@supabase/auth-js`, `signOut()` reads the
+   session out of the *client's own storage* and only calls the API
+   `if (accessToken)` — and because `persistSession` defaults to `true` and
+   falls back to a process-wide memory adapter in Node, that storage holds
+   whichever user logged in through this server last. So logout either revokes
+   nothing (returning a cheerful `204`) or revokes a **different user's**
+   session. Mine disables session persistence and passes the caller's own
+   verified token explicitly.
+2. **No validation of input types or emptiness.** `if (!email || !password)`
+   lets `"   "` and non-strings like `1` / `true` through to the SDK. With a
+   real project those become Supabase's problem; the boundary is simply not
+   guarded.
+3. **No env validation.** With no `.env` present, it dies on startup with
+   `Error: supabaseUrl is required.` from inside `node_modules`. Mine fails
+   with a message naming the variable and pointing at `.env.example`.
+4. **Unhandled async errors.** No route has a `try`/`catch` and the app has no
+   error middleware, so any rejection inside an `async` handler becomes an
+   unhandled promise rejection. `data.session.access_token` in the login route
+   is the concrete landmine: Supabase can return a user with no session (email
+   confirmation pending), which throws a `TypeError` and, on Node 24, takes
+   the process down. Mine wraps async handlers in
+   [`asyncRoute`](src/asyncRoute.ts) and checks `!data.session`.
+
+### What my prompt missed, and what the AI assumed
+
+- **What I forgot to ask for:** env validation, error handling for anything
+  other than the auth failures I enumerated, a second protected route to prove
+  the middleware is reusable, `/health`, and TypeScript. The AI gave me exactly
+  the endpoints I listed and nothing beyond them — every requirement I didn't
+  state is a requirement that didn't get built.
+- **What it assumed:** plain JavaScript in a single 100-line `server.js`,
+  `PORT || 3001`, `req.user` as the way to pass the verified user down, and —
+  most importantly — that "sign the user out" means calling `signOut()` with
+  no arguments. That last one reads perfectly plausibly; you only catch it by
+  knowing the SDK stores session state on the client.
+- **The pattern:** it got every status code I named right (`201`, `200`,
+  `400`, `401`, `204`) and reproduced my exact error strings. Correctness on
+  the paths I described, silence on everything else. Explicit instructions
+  produce explicit results; the gaps in the prompt become gaps in the code,
+  and the security-relevant gaps are the ones that don't announce themselves
+  in testing.
