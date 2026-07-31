@@ -4,6 +4,7 @@ import { createSupabaseClient } from "./supabase";
 import { createAuthRouter } from "./routes/authRoutes";
 import { createPublicRouter } from "./routes/publicRoutes";
 import { createProtectedRouter } from "./routes/protectedRoutes";
+import { createDocsRouter } from "./docs";
 
 const config = loadConfig();
 const supabase = createSupabaseClient(config);
@@ -15,6 +16,7 @@ app.get("/health", (_req, res) => res.json({ status: "ok" }));
 app.use(createPublicRouter());
 app.use(createAuthRouter(supabase));
 app.use(createProtectedRouter(supabase));
+app.use(createDocsRouter());
 
 // Anything that escapes a route handler becomes a 500 without leaking internals.
 app.use((err: unknown, _req: Request, res: Response, _next: NextFunction) => {
