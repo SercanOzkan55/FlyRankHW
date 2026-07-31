@@ -1,6 +1,7 @@
-import express from "express";
+import express, { NextFunction, Request, Response } from "express";
 import { loadConfig } from "./config";
 import { createSupabaseClient } from "./supabase";
+import { createAuthRouter } from "./routes/authRoutes";
 
 const config = loadConfig();
 const supabase = createSupabaseClient(config);
@@ -9,6 +10,13 @@ const app = express();
 app.use(express.json());
 
 app.get("/health", (_req, res) => res.json({ status: "ok" }));
+app.use(createAuthRouter(supabase));
+
+// Anything that escapes a route handler becomes a 500 without leaking internals.
+app.use((err: unknown, _req: Request, res: Response, _next: NextFunction) => {
+  console.error("Unhandled error:", err);
+  res.status(500).json({ error: "Internal server error" });
+});
 
 app.listen(config.port, () => {
   console.log(
