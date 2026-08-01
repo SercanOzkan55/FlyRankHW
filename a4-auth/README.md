@@ -114,6 +114,31 @@ route. The raw spec is served at `/openapi.json`.
 
 ![Swagger UI showing public, auth, and protected routes with padlocks](docs/swagger-ui.png)
 
+## Verified against a live Supabase project
+
+Every checkpoint, run end to end against a real project:
+
+```
+POST /auth/signup                     -> 201  user created
+POST /auth/signup   (no password)     -> 400  email and password are required
+POST /auth/login                      -> 200  access_token returned
+POST /auth/login    (wrong password)  -> 401  Invalid login credentials
+GET  /public/info                     -> 200
+GET  /protected/profile (no token)    -> 401  Access token required
+GET  /protected/profile (valid token) -> 200  id, email, createdAt, lastSignInAt
+GET  /protected/profile (1 char edit) -> 401  Invalid or expired token
+GET  /protected/dashboard (valid)     -> 200
+GET  /protected/dashboard (tampered)  -> 401  Invalid or expired token
+POST /auth/logout   (no token)        -> 401  Access token required
+POST /auth/logout   (valid token)     -> 204
+GET  /protected/profile (after logout)-> 401  Invalid or expired token
+GET  /docs                            -> 200
+```
+
+The last line of that run is the one worth pointing at: after `/auth/logout`,
+the very same token that worked a moment earlier is rejected, so the session
+really was revoked server-side rather than merely forgotten by the client.
+
 ## Project layout
 
 ```
@@ -188,6 +213,25 @@ network call, and compares the scheme case-insensitively as RFC 7235 requires.
    nothing (returning a cheerful `204`) or revokes a **different user's**
    session. Mine disables session persistence and passes the caller's own
    verified token explicitly.
+
+   Measured against the live project — log in through my server, then hand the
+   token to the AI server's logout:
+
+   ```
+   1. token works before any logout
+      mine /protected/profile: 200
+   2. call the AI server's logout with that token
+      ai /auth/logout: 204
+   3. is the session actually revoked?
+      mine /protected/profile: 200   <- STILL VALID
+   4. now log out through my server with the same token
+      mine /auth/logout: 204
+      mine /protected/profile: 401 Invalid or expired token
+   ```
+
+   The AI server answered `204 No Content` — the exact status the assignment
+   asks for — while leaving the session fully usable. A test that only checks
+   status codes passes it.
 2. **No validation of input types or emptiness.** `if (!email || !password)`
    lets `"   "` and non-strings like `1` / `true` through to the SDK. With a
    real project those become Supabase's problem; the boundary is simply not
