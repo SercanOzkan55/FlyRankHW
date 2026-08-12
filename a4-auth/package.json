@@ -9,8 +9,12 @@
     "dev": "ts-node-dev --respawn --transpile-only src/index.ts",
     "typecheck": "tsc --noEmit",
     "llm:hello": "ts-node src/llm/hello.ts",
-    "start:stub": "npm run build && node -e \"process.env.LLM_STUB='1';process.env.LLM_ENABLED='true';require('./dist/index.js')\"",
+    "start:stub": "npm run build && node -e \"process.env.LLM_ENABLED='true';require('./dist/index.js')\"",
     "start:ollama": "npm run build && node -e \"process.env.LLM_BASE_URL='http://localhost:11434/v1/';process.env.LLM_API_KEY='ollama';process.env.LLM_MODEL='smollm2:360m';process.env.LLM_TIMEOUT_MS='60000';process.env.LLM_MAX_RETRIES='2';process.env.LLM_STUB='0';process.env.LLM_ENABLED='true';require('./dist/index.js')\"",
+    "worker": "node dist/jobs/worker.js",
+    "worker:stub": "npm run build && node -e \"process.env.LLM_STUB='1';require('./dist/jobs/worker.js')\"",
+    "worker:ollama": "npm run build && node -e \"process.env.LLM_BASE_URL='http://localhost:11434/v1/';process.env.LLM_API_KEY='ollama';process.env.LLM_MODEL='smollm2:360m';process.env.LLM_TIMEOUT_MS='60000';process.env.LLM_MAX_RETRIES='2';process.env.LLM_STUB='0';require('./dist/jobs/worker.js')\"",
+    "jobs:smoke": "node evals/background-smoke.js",
     "eval": "node evals/run.js"
   },
   "dependencies": {
