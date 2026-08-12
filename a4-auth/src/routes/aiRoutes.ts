@@ -1,10 +1,12 @@
 import { Router } from "express";
+import { asyncRoute } from "../asyncRoute";
+import { requestTriageCompletion } from "../llm/client";
 import { triageInputSchema, triageResultSchema, STUB_TRIAGE_RESULT } from "../llm/schema";
 
 export function createAiRouter(): Router {
   const router = Router();
 
-  router.post("/ai/triage", (req, res) => {
+  router.post("/ai/triage", asyncRoute(async (req, res) => {
     const input = triageInputSchema.safeParse(req.body);
     if (!input.success) {
       const issue = input.error.issues[0];
@@ -19,12 +21,9 @@ export function createAiRouter(): Router {
       return res.json(triageResultSchema.parse(STUB_TRIAGE_RESULT));
     }
 
-    return res.status(503).json({
-      error: "LLM is not configured for real calls yet",
-      message: "Set LLM_STUB=1 while developing.",
-    });
-  });
+    const raw = await requestTriageCompletion(input.data);
+    return res.type("text/plain").send(raw.content);
+  }));
 
   return router;
 }
-
