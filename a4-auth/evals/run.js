@@ -10,22 +10,29 @@ async function main() {
   let passed = 0;
 
   for (const testCase of cases) {
-    const response = await fetch(endpoint, {
+    const accepted = await fetch(endpoint, {
       method: "POST",
-      headers: { "content-type": "application/json" },
+      headers: {
+        "content-type": "application/json",
+        "idempotency-key": `eval-${testCase.id}-${Date.now()}`,
+      },
       body: JSON.stringify({ text: testCase.text }),
     });
-    const body = await response.json();
-    const ok = response.ok && body.category === testCase.expectedCategory;
+    const receipt = await accepted.json();
+    if (accepted.status !== 202 || !receipt.jobId) {
+      throw new Error(`Expected 202 for ${testCase.id}, received ${accepted.status}`);
+    }
+    const body = await waitForResult(`${endpoint}/jobs/${receipt.jobId}`);
+    const ok = body.status === "completed" && body.result?.category === testCase.expectedCategory;
     if (ok) passed += 1;
     else {
       failures.push({
         id: testCase.id,
         expected: testCase.expectedCategory,
-        actual: body.category || `${response.status} ${body.error || "unknown error"}`,
+        actual: body.result?.category || `${body.status} ${body.error || "unknown error"}`,
       });
     }
-    console.log(`${ok ? "PASS" : "FAIL"} ${testCase.id}: ${body.category || body.error}`);
+    console.log(`${ok ? "PASS" : "FAIL"} ${testCase.id}: ${body.result?.category || body.error}`);
   }
 
   const percent = ((passed / cases.length) * 100).toFixed(1);
@@ -34,8 +41,18 @@ async function main() {
   process.exitCode = failures.length ? 1 : 0;
 }
 
+async function waitForResult(statusUrl) {
+  const deadline = Date.now() + Number(process.env.EVAL_TIMEOUT_MS || 180000);
+  while (Date.now() < deadline) {
+    const response = await fetch(statusUrl);
+    const body = await response.json();
+    if (body.status === "completed" || body.status === "failed") return body;
+    await new Promise((resolveWait) => setTimeout(resolveWait, 250));
+  }
+  throw new Error(`Timed out waiting for ${statusUrl}`);
+}
+
 main().catch((error) => {
   console.error("Eval could not run:", error instanceof Error ? error.message : error);
   process.exitCode = 1;
 });
-

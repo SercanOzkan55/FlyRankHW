@@ -8,38 +8,65 @@ forwards credentials to Supabase and verifies the tokens Supabase issues.
 
 ## AI support triage endpoint
 
-`POST /ai/triage` turns one messy technical support message into a small,
-validated decision that another part of the product can safely use. It is not a
-chatbot: there is no conversation or memory. The model proposes a category,
-urgency and team, but Zod validates every field before the API returns it. Raw
-model text never crosses the endpoint boundary.
+`POST /ai/triage` accepts one messy technical support message without waiting
+for the slow model call. It writes a durable local job and immediately returns
+`202 Accepted`. A separate worker performs the classification; clients poll
+`GET /ai/triage/jobs/:jobId` until the state is `completed` or `failed`.
 
-### Try it without an API key
+```text
+Client --POST--> API --202 + jobId--> Client
+                   |
+                job file
+                   |
+Worker <-------- claims it
+  |
+  +--> model + schema validation + retry
+  |
+  +--> completed result / failed alert
+```
+
+The queue is filesystem-backed so it is free, survives an API restart, and is
+easy to run locally. Atomic lock files protect claims, and a stale `processing`
+job can be reclaimed after a worker crash. For a multi-server production
+deployment I would replace this adapter with Postgres/Supabase or Redis while
+keeping the same HTTP and worker contract.
+
+### Try the full background flow without an API key
 
 The easiest local test uses the schema-valid stub. It makes zero model calls.
 
 ```powershell
-# Terminal 1
+# Terminal 1: API (does not run the model)
 npm install
 npm run start:stub
 
-# Terminal 2
-curl.exe -X POST http://localhost:3000/ai/triage `
-  -H "Content-Type: application/json" `
-  -d '{"text":"I can log in but my new token gets 401 on protected routes."}'
+# Terminal 2: background worker
+npm run worker:stub
+
+# Terminal 3: submit a job
+$receipt = Invoke-RestMethod -Method Post -Uri "http://localhost:3000/ai/triage" `
+  -ContentType "application/json" `
+  -Headers @{ "Idempotency-Key" = "demo-auth-1" } `
+  -Body '{"text":"I can log in but my new token gets 401 on protected routes."}'
+
+$receipt
+Invoke-RestMethod "http://localhost:3000$($receipt.statusUrl)"
 ```
 
-Exact stub response:
+The POST responds immediately, normally before the worker has done anything:
 
 ```json
 {
-  "category": "authentication",
-  "urgency": "normal",
-  "suggestedTeam": "backend",
-  "confidence": 0.9,
-  "reason": "Stub mode classified the message as an authentication issue."
+  "jobId": "8e0d0bb7-4d7b-46da-98af-3222d09e42f1",
+  "status": "queued",
+  "reused": false,
+  "statusUrl": "/ai/triage/jobs/8e0d0bb7-4d7b-46da-98af-3222d09e42f1"
 }
 ```
+
+The status response later contains the schema-validated result. Send the same
+request with the same `Idempotency-Key` and `reused` becomes `true` with the
+same `jobId`; no duplicate model work is created.
 
 Invalid input is rejected before any model call:
 
@@ -98,12 +125,16 @@ provider's data policy, so only synthetic support messages should be used.
 | Situation | API behavior |
 |---|---|
 | Invalid input | `400`, names the bad field, zero model calls |
-| Valid structured answer | `200`, Zod-validated JSON |
-| Invalid model answer | One repair call, then `422` and quarantine |
-| Model timeout | `504` after an explicit configured timeout, capped at 60 seconds per call |
-| `429`, timeout, or `5xx` | At most two retries with backoff and jitter |
+| Valid request | Immediate `202` with a job ID; no model wait |
+| Valid structured answer | Status becomes `completed` with Zod-validated JSON |
+| Invalid model answer | One repair call; failed attempts remain background-job failures |
+| Model timeout | Worker attempt fails after an explicit timeout capped at 60 seconds |
+| `429`, timeout, or `5xx` | Provider retry plus bounded worker retry |
 | `400`, `401`, or `403` from provider | No retry |
 | `LLM_ENABLED=false` | Immediate `503`, zero model calls |
+| Worker/API restart | Queued jobs remain on disk; stale processing jobs are reclaimed |
+| Same `Idempotency-Key` twice | Same job ID and one execution |
+| Three failed attempts | Status `failed`, stderr alert, and `logs/job-alerts.jsonl` |
 
 The SDK's automatic retries are disabled (`maxRetries: 0`) so the application
 owns one visible, bounded retry policy. Failed validation is quarantined in
@@ -134,15 +165,12 @@ npm run eval
 The script reports category accuracy and lists every mismatch. The recorded
 local run used the committed eight cases without changing their labels:
 
-- **Result:** `7/8 (87.5%)` on 2026-08-13
+- **Latest result:** `8/8 (100%)` on 2026-08-13
 - **Provider/model:** local Ollama with `smollm2:360m` (no API charge)
 - **Prompt:** `triage-v1`
-- **Known miss:** the mixed message saying one endpoint works while
-  `/auth/signup` returns malformed JSON was labelled `api`; the model returned
-  an invalid first answer. The API performed exactly one repair attempt; the
-  repaired answer was schema-valid but chose `other`, so the eval still counts
-  it as a miss. If the repair had also failed validation, the API would have
-  returned `422` instead of leaking invalid output.
+- **Run-to-run note:** an earlier local run scored `7/8`; the next unchanged
+  run scored `8/8`. Even at temperature zero a local model can vary, so both
+  observations are recorded rather than claiming perfect stability.
 - **Prompt iteration:** the first run scored `4/8`. Adding explicit category
   priority rules raised it to `7/8`; a formatting example briefly biased the
   small model toward one category, so the example was corrected and the
@@ -151,24 +179,30 @@ local run used the committed eight cases without changing their labels:
   split easy and hard inputs, and compare a second model before changing the
   production prompt.
 
-### One-command local model test (Windows)
+### Local model background-job test (Windows)
 
 Ollama and `smollm2:360m` must be installed and Ollama must be running. Then:
 
 ```powershell
-# Terminal 1
+# Terminal 1: API
 & "C:\Program Files\nodejs\npm.cmd" run start:ollama
 
-# Terminal 2: all eight labelled cases
+# Terminal 2: worker that owns the Ollama calls
+& "C:\Program Files\nodejs\npm.cmd" run worker:ollama
+
+# Terminal 3: all eight labelled cases, including polling
 & "C:\Program Files\nodejs\npm.cmd" run eval
 ```
 
-To try your own message while Terminal 1 is running:
+To try your own message while both the API and worker are running:
 
 ```powershell
-curl.exe -X POST http://localhost:3000/ai/triage `
-  -H "Content-Type: application/json" `
-  -d '{"text":"Our card was charged twice for one invoice."}'
+$receipt = Invoke-RestMethod -Method Post -Uri "http://localhost:3000/ai/triage" `
+  -ContentType "application/json" `
+  -Headers @{ "Idempotency-Key" = "my-billing-test-1" } `
+  -Body '{"text":"Our card was charged twice for one invoice."}'
+
+Invoke-RestMethod "http://localhost:3000$($receipt.statusUrl)"
 ```
 
 ## How the flow works
