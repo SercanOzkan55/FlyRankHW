@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { asyncRoute } from "../asyncRoute";
-import { requestTriageCompletion } from "../llm/client";
+import { runTriage, TriageValidationError } from "../llm/triage";
 import { triageInputSchema, triageResultSchema, STUB_TRIAGE_RESULT } from "../llm/schema";
 
 export function createAiRouter(): Router {
@@ -21,8 +21,18 @@ export function createAiRouter(): Router {
       return res.json(triageResultSchema.parse(STUB_TRIAGE_RESULT));
     }
 
-    const raw = await requestTriageCompletion(input.data);
-    return res.type("text/plain").send(raw.content);
+    try {
+      const run = await runTriage(input.data);
+      return res.json(run.result);
+    } catch (error) {
+      if (error instanceof TriageValidationError) {
+        return res.status(422).json({
+          error: "Invalid model output",
+          message: error.message,
+        });
+      }
+      throw error;
+    }
   }));
 
   return router;
