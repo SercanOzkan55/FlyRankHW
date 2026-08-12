@@ -3,3 +3,4 @@ dist/
 .env
 logs/*.jsonl
 !logs/.gitkeep
+data/ai-jobs/

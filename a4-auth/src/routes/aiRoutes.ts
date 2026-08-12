@@ -1,8 +1,9 @@
+import crypto from "node:crypto";
 import { Router } from "express";
 import { asyncRoute } from "../asyncRoute";
-import { runTriage, TriageValidationError } from "../llm/triage";
-import { LlmProviderError, LlmTimeoutError } from "../llm/client";
-import { triageInputSchema, triageResultSchema, STUB_TRIAGE_RESULT } from "../llm/schema";
+import { triageInputSchema } from "../llm/schema";
+import { enqueueJob, getJob } from "../jobs/store";
+import { toPublicJob } from "../jobs/types";
 
 export function createAiRouter(): Router {
   const router = Router();
@@ -25,35 +26,26 @@ export function createAiRouter(): Router {
       });
     }
 
-    if (process.env.LLM_STUB === "1") {
-      return res.json(triageResultSchema.parse(STUB_TRIAGE_RESULT));
+    const headerKey = req.header("Idempotency-Key");
+    const idempotencyKey = headerKey?.trim() || `generated-${crypto.randomUUID()}`;
+    if (idempotencyKey.length > 200) {
+      return res.status(400).json({ error: "Invalid Idempotency-Key", message: "Maximum length is 200 characters." });
     }
 
-    try {
-      const run = await runTriage(input.data);
-      return res.json(run.result);
-    } catch (error) {
-      if (error instanceof TriageValidationError) {
-        return res.status(422).json({
-          error: "Invalid model output",
-          message: error.message,
-        });
-      }
-      if (error instanceof LlmTimeoutError) {
-        return res.status(504).json({
-          error: "Model timeout",
-          message: error.message,
-        });
-      }
-      if (error instanceof LlmProviderError) {
-        return res.status(502).json({
-          error: "Model provider error",
-          message: "The provider request failed and no untrusted model text was returned.",
-          providerStatus: error.status || null,
-        });
-      }
-      throw error;
-    }
+    const queued = await enqueueJob(input.data, idempotencyKey);
+    res.setHeader("Location", `/ai/triage/jobs/${queued.job.id}`);
+    return res.status(202).json({
+      jobId: queued.job.id,
+      status: queued.job.status,
+      reused: queued.reused,
+      statusUrl: `/ai/triage/jobs/${queued.job.id}`,
+    });
+  }));
+
+  router.get("/ai/triage/jobs/:jobId", asyncRoute(async (req, res) => {
+    const job = await getJob(req.params.jobId);
+    if (!job) return res.status(404).json({ error: "Job not found" });
+    return res.json(toPublicJob(job));
   }));
 
   return router;

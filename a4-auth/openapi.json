@@ -48,6 +48,30 @@
           "reason": { "type": "string", "minLength": 1, "maxLength": 240 }
         }
       },
+      "TriageJobReceipt": {
+        "type": "object",
+        "required": ["jobId", "status", "statusUrl"],
+        "properties": {
+          "jobId": { "type": "string", "format": "uuid" },
+          "status": { "type": "string", "enum": ["queued", "processing", "completed", "failed"] },
+          "reused": { "type": "boolean" },
+          "statusUrl": { "type": "string" }
+        }
+      },
+      "TriageJobStatus": {
+        "type": "object",
+        "required": ["jobId", "status", "attempts", "maxAttempts", "createdAt", "updatedAt"],
+        "properties": {
+          "jobId": { "type": "string", "format": "uuid" },
+          "status": { "type": "string", "enum": ["queued", "processing", "completed", "failed"] },
+          "attempts": { "type": "integer" },
+          "maxAttempts": { "type": "integer" },
+          "createdAt": { "type": "string", "format": "date-time" },
+          "updatedAt": { "type": "string", "format": "date-time" },
+          "result": { "$ref": "#/components/schemas/TriageResult" },
+          "error": { "type": "string" }
+        }
+      },
       "Session": {
         "type": "object",
         "properties": {
@@ -79,9 +103,15 @@
     "/ai/triage": {
       "post": {
         "tags": ["ai"],
-        "summary": "Classify one technical support message",
-        "description": "Returns only schema-validated JSON. Raw model text is never returned.",
+        "summary": "Queue one technical support message for classification",
+        "description": "Returns immediately with 202. A separate worker performs the model call. Reusing an Idempotency-Key returns the original job.",
         "security": [],
+        "parameters": [{
+          "in": "header",
+          "name": "Idempotency-Key",
+          "required": false,
+          "schema": { "type": "string", "maxLength": 200 }
+        }],
         "requestBody": {
           "required": true,
           "content": {
@@ -89,15 +119,32 @@
           }
         },
         "responses": {
-          "200": {
-            "description": "Validated triage decision",
-            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/TriageResult" } } }
+          "202": {
+            "description": "Job accepted without waiting for the model",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/TriageJobReceipt" } } }
           },
           "400": { "description": "Invalid input" },
-          "422": { "description": "Model output failed validation and one repair" },
-          "502": { "description": "Provider request failed" },
-          "503": { "description": "AI feature disabled" },
-          "504": { "description": "Provider timeout" }
+          "503": { "description": "AI feature disabled" }
+        }
+      }
+    },
+    "/ai/triage/jobs/{jobId}": {
+      "get": {
+        "tags": ["ai"],
+        "summary": "Read queued AI job status and result",
+        "security": [],
+        "parameters": [{
+          "in": "path",
+          "name": "jobId",
+          "required": true,
+          "schema": { "type": "string", "format": "uuid" }
+        }],
+        "responses": {
+          "200": {
+            "description": "Current job state; completed jobs include the validated result",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/TriageJobStatus" } } }
+          },
+          "404": { "description": "Job not found" }
         }
       }
     },
