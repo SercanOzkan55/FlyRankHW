@@ -70,7 +70,7 @@ export async function runTriage(input: TriageInput): Promise<TriageRun> {
       `Rejected answer: ${JSON.stringify(first.content)}`,
       "Return only corrected JSON matching the original schema.",
     ].join("\n");
-    const second = await requestTriageCompletion(input, repairInstruction);
+    const second = await requestTriageCompletion(input, repairInstruction, 1);
     try {
       return { result: validateAnswer(second.content), calls: [first, second], repairCount: 1 };
     } catch (secondError) {
@@ -79,4 +79,3 @@ export async function runTriage(input: TriageInput): Promise<TriageRun> {
     }
   }
 }
-
