@@ -8,7 +8,10 @@
     "start": "node dist/index.js",
     "dev": "ts-node-dev --respawn --transpile-only src/index.ts",
     "typecheck": "tsc --noEmit",
-    "llm:hello": "ts-node src/llm/hello.ts"
+    "llm:hello": "ts-node src/llm/hello.ts",
+    "start:stub": "npm run build && node -e \"process.env.LLM_STUB='1';process.env.LLM_ENABLED='true';require('./dist/index.js')\"",
+    "start:ollama": "npm run build && node -e \"process.env.LLM_BASE_URL='http://localhost:11434/v1/';process.env.LLM_API_KEY='ollama';process.env.LLM_MODEL='smollm2:360m';process.env.LLM_TIMEOUT_MS='60000';process.env.LLM_MAX_RETRIES='2';process.env.LLM_STUB='0';process.env.LLM_ENABLED='true';require('./dist/index.js')\"",
+    "eval": "node evals/run.js"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.45.4",

@@ -12,7 +12,8 @@ async function main(): Promise<void> {
     );
   }
 
-  const client = new OpenAI({ baseURL, apiKey, timeout: 30_000, maxRetries: 0 });
+  const timeout = Math.min(Number(process.env.LLM_TIMEOUT_MS || 30_000), 60_000);
+  const client = new OpenAI({ baseURL, apiKey, timeout, maxRetries: 0 });
   const response = await client.chat.completions.create({
     model,
     temperature: 0,
@@ -26,4 +27,3 @@ main().catch((error: unknown) => {
   console.error(error instanceof Error ? error.message : error);
   process.exitCode = 1;
 });
-

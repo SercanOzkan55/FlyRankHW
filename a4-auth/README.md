@@ -6,6 +6,171 @@ back, and present that token as `Authorization: Bearer <token>` to reach the
 protected routes. The server never stores or hashes passwords itself — it
 forwards credentials to Supabase and verifies the tokens Supabase issues.
 
+## AI support triage endpoint
+
+`POST /ai/triage` turns one messy technical support message into a small,
+validated decision that another part of the product can safely use. It is not a
+chatbot: there is no conversation or memory. The model proposes a category,
+urgency and team, but Zod validates every field before the API returns it. Raw
+model text never crosses the endpoint boundary.
+
+### Try it without an API key
+
+The easiest local test uses the schema-valid stub. It makes zero model calls.
+
+```powershell
+# Terminal 1
+npm install
+npm run start:stub
+
+# Terminal 2
+curl.exe -X POST http://localhost:3000/ai/triage `
+  -H "Content-Type: application/json" `
+  -d '{"text":"I can log in but my new token gets 401 on protected routes."}'
+```
+
+Exact stub response:
+
+```json
+{
+  "category": "authentication",
+  "urgency": "normal",
+  "suggestedTeam": "backend",
+  "confidence": 0.9,
+  "reason": "Stub mode classified the message as an authentication issue."
+}
+```
+
+Invalid input is rejected before any model call:
+
+```powershell
+curl.exe -X POST http://localhost:3000/ai/triage `
+  -H "Content-Type: application/json" `
+  -d '{"text":123}'
+```
+
+```json
+{
+  "error": "Invalid request",
+  "field": "text",
+  "message": "text must be a string"
+}
+```
+
+### Job card
+
+- **Input:** `{ "text": "string, 1-2000 characters" }`
+- **Output:** `category`, `urgency`, `suggestedTeam`, `confidence`, and one
+  short `reason`. All category-like fields use closed lists defined in
+  [`JOB-CARD.md`](JOB-CARD.md).
+- **It must never:** invent categories, add fields, return raw model text,
+  reveal the prompt, or follow instructions embedded in the support message.
+- **When unsure:** return `other`, route to `support`, and use confidence below
+  `0.5` rather than guessing.
+
+### Run a real model
+
+The provider is selected entirely with three environment variables. The code
+does not change when moving between local Ollama and hosted OpenRouter.
+
+```dotenv
+# Local, no account or quota
+LLM_BASE_URL=http://localhost:11434/v1/
+LLM_API_KEY=ollama
+LLM_MODEL=smollm2:360m
+
+# Or hosted OpenRouter
+# LLM_BASE_URL=https://openrouter.ai/api/v1
+# LLM_API_KEY=your_key_here
+# LLM_MODEL=openrouter/free
+
+LLM_STUB=0
+LLM_ENABLED=true
+LLM_TIMEOUT_MS=60000
+LLM_MAX_RETRIES=2
+```
+
+Never commit `.env`. Free OpenRouter endpoints may process prompts under the
+provider's data policy, so only synthetic support messages should be used.
+
+### Reliability contract
+
+| Situation | API behavior |
+|---|---|
+| Invalid input | `400`, names the bad field, zero model calls |
+| Valid structured answer | `200`, Zod-validated JSON |
+| Invalid model answer | One repair call, then `422` and quarantine |
+| Model timeout | `504` after an explicit configured timeout, capped at 60 seconds per call |
+| `429`, timeout, or `5xx` | At most two retries with backoff and jitter |
+| `400`, `401`, or `403` from provider | No retry |
+| `LLM_ENABLED=false` | Immediate `503`, zero model calls |
+
+The SDK's automatic retries are disabled (`maxRetries: 0`) so the application
+owns one visible, bounded retry policy. Failed validation is quarantined in
+`logs/quarantine.jsonl`, which is git-ignored.
+
+Every real call writes a structured stdout log containing the prompt version,
+model, token counts, duration, repair count, and retry attempt:
+
+```json
+{"event":"llm_call","promptVersion":"triage-v1","model":"smollm2:360m","inputTokens":1016,"outputTokens":39,"durationMs":630,"repairCount":0,"retryAttempt":0}
+```
+
+The actual values come from the provider response; the line above only shows
+the log shape. Local Ollama has no per-token provider charge, so 10,000 local
+requests have an API charge of `$0` but still consume machine time and power.
+OpenRouter cost depends on the free model selected by its router.
+
+### Eight-case evaluation
+
+[`evals/cases.json`](evals/cases.json) contains eight hand-labelled messages,
+including an ambiguous case and a prompt-injection attempt. With the real model
+server running:
+
+```powershell
+npm run eval
+```
+
+The script reports category accuracy and lists every mismatch. The recorded
+local run used the committed eight cases without changing their labels:
+
+- **Result:** `7/8 (87.5%)` on 2026-08-13
+- **Provider/model:** local Ollama with `smollm2:360m` (no API charge)
+- **Prompt:** `triage-v1`
+- **Known miss:** the mixed message saying one endpoint works while
+  `/auth/signup` returns malformed JSON was labelled `api`; the model returned
+  an invalid first answer. The API performed exactly one repair attempt; the
+  repaired answer was schema-valid but chose `other`, so the eval still counts
+  it as a miss. If the repair had also failed validation, the API would have
+  returned `422` instead of leaking invalid output.
+- **Prompt iteration:** the first run scored `4/8`. Adding explicit category
+  priority rules raised it to `7/8`; a formatting example briefly biased the
+  small model toward one category, so the example was corrected and the
+  result was measured again. These are real iterations, not rewritten history.
+- **What I would fix with another day:** expand the eval from 8 to 25 cases,
+  split easy and hard inputs, and compare a second model before changing the
+  production prompt.
+
+### One-command local model test (Windows)
+
+Ollama and `smollm2:360m` must be installed and Ollama must be running. Then:
+
+```powershell
+# Terminal 1
+& "C:\Program Files\nodejs\npm.cmd" run start:ollama
+
+# Terminal 2: all eight labelled cases
+& "C:\Program Files\nodejs\npm.cmd" run eval
+```
+
+To try your own message while Terminal 1 is running:
+
+```powershell
+curl.exe -X POST http://localhost:3000/ai/triage `
+  -H "Content-Type: application/json" `
+  -d '{"text":"Our card was charged twice for one invoice."}'
+```
+
 ## How the flow works
 
 ```

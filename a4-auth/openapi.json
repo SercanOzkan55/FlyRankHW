@@ -28,6 +28,26 @@
         "type": "object",
         "properties": { "error": { "type": "string" } }
       },
+      "TriageInput": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["text"],
+        "properties": {
+          "text": { "type": "string", "minLength": 1, "maxLength": 2000 }
+        }
+      },
+      "TriageResult": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["category", "urgency", "suggestedTeam", "confidence", "reason"],
+        "properties": {
+          "category": { "type": "string", "enum": ["authentication", "api", "database", "billing", "other"] },
+          "urgency": { "type": "string", "enum": ["low", "normal", "high"] },
+          "suggestedTeam": { "type": "string", "enum": ["backend", "frontend", "support"] },
+          "confidence": { "type": "number", "minimum": 0, "maximum": 1 },
+          "reason": { "type": "string", "minLength": 1, "maxLength": 240 }
+        }
+      },
       "Session": {
         "type": "object",
         "properties": {
@@ -56,6 +76,31 @@
     }
   },
   "paths": {
+    "/ai/triage": {
+      "post": {
+        "tags": ["ai"],
+        "summary": "Classify one technical support message",
+        "description": "Returns only schema-validated JSON. Raw model text is never returned.",
+        "security": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": { "schema": { "$ref": "#/components/schemas/TriageInput" } }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Validated triage decision",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/TriageResult" } } }
+          },
+          "400": { "description": "Invalid input" },
+          "422": { "description": "Model output failed validation and one repair" },
+          "502": { "description": "Provider request failed" },
+          "503": { "description": "AI feature disabled" },
+          "504": { "description": "Provider timeout" }
+        }
+      }
+    },
     "/health": {
       "get": {
         "tags": ["public"],
