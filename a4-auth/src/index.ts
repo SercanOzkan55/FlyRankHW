@@ -5,6 +5,7 @@ import { createAuthRouter } from "./routes/authRoutes";
 import { createPublicRouter } from "./routes/publicRoutes";
 import { createProtectedRouter } from "./routes/protectedRoutes";
 import { createDocsRouter } from "./docs";
+import { createAiRouter } from "./routes/aiRoutes";
 
 const config = loadConfig();
 const supabase = createSupabaseClient(config);
@@ -14,6 +15,7 @@ app.use(express.json());
 
 app.get("/health", (_req, res) => res.json({ status: "ok" }));
 app.use(createPublicRouter());
+app.use(createAiRouter());
 app.use(createAuthRouter(supabase));
 app.use(createProtectedRouter(supabase));
 app.use(createDocsRouter());
