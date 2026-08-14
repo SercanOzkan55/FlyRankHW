@@ -76,6 +76,98 @@ async function classifyDecision(prompt: string, input: string) {
   };
 }
 
+type WorkflowStepRunner = (
+  name: string,
+  handler: () => unknown | Promise<unknown>,
+) => Promise<any>;
+
+export async function runWorkflowPayload(
+  payload: WorkflowRunPayload,
+  runStep: WorkflowStepRunner,
+) {
+  const { runId, workflow, input } = payload;
+  const nodeById = new Map(workflow.nodes.map((node) => [node.id, node]));
+  const visited = new Set<string>();
+  let currentNodeId = workflow.startNodeId;
+  let order = 0;
+
+  await runStep("initialize-run", () => {
+    updateRun(runId, { status: "running" });
+    addRunLog(runId, `Execution started at ${nodeById.get(currentNodeId)?.data.label ?? currentNodeId}`);
+    return { started: true };
+  });
+
+  while (currentNodeId) {
+    if (visited.has(currentNodeId)) {
+      throw new Error(`Cycle detected at node ${currentNodeId}`);
+    }
+    if (order >= workflow.nodes.length) {
+      throw new Error("Execution exceeded the workflow node limit");
+    }
+
+    const node = nodeById.get(currentNodeId);
+    if (!node) throw new Error(`Node ${currentNodeId} could not be found`);
+
+    visited.add(currentNodeId);
+    order += 1;
+    const stepNumber = order;
+
+    await runStep(`activate-${stepNumber}-${node.id}`, () => {
+      updateRun(runId, { activeNodeId: node.id, activeEdgeId: undefined });
+      addRunLog(runId, `Step ${stepNumber} - Evaluating ${node.data.label}`);
+      return { nodeId: node.id };
+    });
+
+    const decision = await runStep(`decision-${stepNumber}-${node.id}`, () =>
+      classifyDecision(node.data.prompt, input),
+    );
+
+    const selectedEdge = workflow.edges.find(
+      (edge) =>
+        edge.source === node.id &&
+        (edge.data.branch === decision.result || edge.sourceHandle === decision.result),
+    );
+
+    await runStep(`record-${stepNumber}-${node.id}`, () => {
+      addDecision(runId, {
+        nodeId: node.id,
+        label: node.data.label,
+        prompt: node.data.prompt,
+        result: decision.result,
+        order: stepNumber,
+        edgeId: selectedEdge?.id,
+        provider: decision.provider,
+        durationMs: decision.durationMs,
+        timestamp: new Date().toISOString(),
+      });
+      updateRun(runId, {
+        activeNodeId: selectedEdge ? undefined : node.id,
+        activeEdgeId: selectedEdge?.id,
+      });
+      addRunLog(
+        runId,
+        `${node.data.label} returned ${decision.result}${selectedEdge ? ` -> ${nodeById.get(selectedEdge.target)?.data.label ?? selectedEdge.target}` : " - End of branch"}`,
+        "success",
+      );
+      return { selectedEdgeId: selectedEdge?.id ?? null };
+    });
+
+    currentNodeId = selectedEdge?.target ?? "";
+  }
+
+  await runStep("complete-run", () => {
+    updateRun(runId, {
+      status: "completed",
+      activeNodeId: undefined,
+      activeEdgeId: undefined,
+    });
+    addRunLog(runId, `Workflow completed in ${order} decision${order === 1 ? "" : "s"}`, "success");
+    return { completed: true, decisions: order };
+  });
+
+  return { runId, decisions: order, status: "completed" };
+}
+
 export const executeWorkflow = inngest.createFunction(
   {
     id: "execute-branchline-workflow",
@@ -96,89 +188,10 @@ export const executeWorkflow = inngest.createFunction(
       addRunLog(runId, `Run failed after retries: ${error.message}`, "error");
     },
   },
-  async ({ event, step }) => {
-    const { runId, workflow, input } = event.data as unknown as WorkflowRunPayload;
-    const nodeById = new Map(workflow.nodes.map((node) => [node.id, node]));
-    const visited = new Set<string>();
-    let currentNodeId = workflow.startNodeId;
-    let order = 0;
-
-    await step.run("initialize-run", () => {
-      updateRun(runId, { status: "running" });
-      addRunLog(runId, `Execution started at ${nodeById.get(currentNodeId)?.data.label ?? currentNodeId}`);
-      return { started: true };
-    });
-
-    while (currentNodeId) {
-      if (visited.has(currentNodeId)) {
-        throw new Error(`Cycle detected at node ${currentNodeId}`);
-      }
-      if (order >= workflow.nodes.length) {
-        throw new Error("Execution exceeded the workflow node limit");
-      }
-
-      const node = nodeById.get(currentNodeId);
-      if (!node) throw new Error(`Node ${currentNodeId} could not be found`);
-
-      visited.add(currentNodeId);
-      order += 1;
-      const stepNumber = order;
-
-      await step.run(`activate-${stepNumber}-${node.id}`, () => {
-        updateRun(runId, { activeNodeId: node.id, activeEdgeId: undefined });
-        addRunLog(runId, `Step ${stepNumber} · Evaluating ${node.data.label}`);
-        return { nodeId: node.id };
-      });
-
-      const decision = await step.run(`decision-${stepNumber}-${node.id}`, () =>
-        classifyDecision(node.data.prompt, input),
-      );
-
-      const selectedEdge = workflow.edges.find(
-        (edge) =>
-          edge.source === node.id &&
-          (edge.data.branch === decision.result || edge.sourceHandle === decision.result),
-      );
-
-      await step.run(`record-${stepNumber}-${node.id}`, () => {
-        addDecision(runId, {
-          nodeId: node.id,
-          label: node.data.label,
-          prompt: node.data.prompt,
-          result: decision.result,
-          order: stepNumber,
-          edgeId: selectedEdge?.id,
-          provider: decision.provider,
-          durationMs: decision.durationMs,
-          timestamp: new Date().toISOString(),
-        });
-        updateRun(runId, {
-          activeNodeId: selectedEdge ? undefined : node.id,
-          activeEdgeId: selectedEdge?.id,
-        });
-        addRunLog(
-          runId,
-          `${node.data.label} returned ${decision.result}${selectedEdge ? ` → ${nodeById.get(selectedEdge.target)?.data.label ?? selectedEdge.target}` : " · End of branch"}`,
-          "success",
-        );
-        return { selectedEdgeId: selectedEdge?.id ?? null };
-      });
-
-      currentNodeId = selectedEdge?.target ?? "";
-    }
-
-    await step.run("complete-run", () => {
-      updateRun(runId, {
-        status: "completed",
-        activeNodeId: undefined,
-        activeEdgeId: undefined,
-      });
-      addRunLog(runId, `Workflow completed in ${order} decision${order === 1 ? "" : "s"}`, "success");
-      return { completed: true, decisions: order };
-    });
-
-    return { runId, decisions: order, status: "completed" };
-  },
+  async ({ event, step }) =>
+    runWorkflowPayload(event.data as unknown as WorkflowRunPayload, (name, handler) =>
+      step.run(name, handler),
+    ),
 );
 
 export const functions = [executeWorkflow];

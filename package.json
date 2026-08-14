@@ -6,10 +6,10 @@
     "node": ">=22.13.0"
   },
   "scripts": {
-    "dev": "vinext dev --port 3001",
-    "build": "vinext build",
-    "start": "vinext start --port 3001",
-    "inngest:dev": "npx inngest-cli@latest dev -u http://localhost:3001/api/inngest",
+    "dev": "next dev --port 3000",
+    "build": "next build",
+    "start": "next start --port 3000",
+    "inngest:dev": "npx inngest-cli@latest dev -u http://localhost:3000/api/inngest",
     "test": "npm run build && node --test tests/rendered-html.test.mjs",
     "lint": "eslint . --ignore-pattern dist --ignore-pattern .next"
   },
@@ -20,6 +20,7 @@
     "clsx": "^2.1.1",
     "inngest": "^4.18.1",
     "lucide-react": "^1.31.0",
+    "next": "^16.2.6",
     "openai": "^7.4.0",
     "react": "19.2.6",
     "react-dom": "19.2.6",

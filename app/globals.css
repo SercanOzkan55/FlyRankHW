@@ -45,8 +45,8 @@
   --color-border: var(--border);
   --color-input: var(--input);
   --color-ring: var(--ring);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --font-sans: Arial, Helvetica, sans-serif;
+  --font-mono: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
 }
 
 * {
@@ -62,7 +62,7 @@ body {
 }
 
 body {
-  font-family: var(--font-geist-sans), Arial, sans-serif;
+  font-family: Arial, Helvetica, sans-serif;
   overflow: hidden;
 }
 
@@ -147,7 +147,7 @@ button:disabled {
 .brand-tag {
   margin-top: 3px;
   color: #8a8174;
-  font-family: var(--font-geist-mono), monospace;
+  font-family: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
   font-size: 8px;
   font-weight: 650;
   letter-spacing: 0.2em;
@@ -245,7 +245,7 @@ button:disabled {
   align-items: center;
   gap: 6px;
   color: #8b6d42;
-  font-family: var(--font-geist-mono), monospace;
+  font-family: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
   font-size: 9px;
   font-weight: 760;
   letter-spacing: 0.13em;
@@ -342,7 +342,7 @@ button:disabled {
   align-items: center;
   gap: 7px;
   color: #575147;
-  font-family: var(--font-geist-mono), monospace;
+  font-family: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
   font-size: 10px;
   font-weight: 700;
 }
@@ -403,7 +403,7 @@ button:disabled {
   border-radius: 99px;
   box-shadow: 0 4px 16px rgba(67, 56, 41, 0.06);
   backdrop-filter: blur(8px);
-  font-family: var(--font-geist-mono), monospace;
+  font-family: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
   font-size: 9px;
   font-weight: 650;
   letter-spacing: 0.04em;
@@ -479,7 +479,7 @@ button:disabled {
   background: #f0ece3;
   border-bottom: 1px solid #d9d2c7;
   border-radius: 8px 8px 0 0;
-  font-family: var(--font-geist-mono), monospace;
+  font-family: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
   font-size: 8px;
   font-weight: 750;
   letter-spacing: 0.12em;
@@ -538,7 +538,7 @@ button:disabled {
   align-items: center;
   justify-content: center;
   height: 34px;
-  font-family: var(--font-geist-mono), monospace;
+  font-family: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
   font-size: 9px;
   font-weight: 800;
   letter-spacing: 0.1em;
@@ -595,7 +595,7 @@ button:disabled {
 
 .react-flow__edge-text {
   fill: #5e574d;
-  font-family: var(--font-geist-mono), monospace;
+  font-family: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
   font-size: 8px;
   font-weight: 800;
   letter-spacing: 0.08em;
@@ -713,7 +713,7 @@ button:disabled {
   background: #ece7dd;
   border: 1px solid #d7d0c3;
   border-radius: 99px;
-  font-family: var(--font-geist-mono), monospace;
+  font-family: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
   font-size: 8px;
   font-weight: 760;
   text-transform: uppercase;
@@ -791,7 +791,7 @@ button:disabled {
   background: #eee9df;
   border: 1px solid #d3cbbf;
   border-radius: 50%;
-  font-family: var(--font-geist-mono), monospace;
+  font-family: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
   font-size: 8px;
 }
 
@@ -827,7 +827,7 @@ button:disabled {
 
 .log-item time {
   color: #a0978a;
-  font-family: var(--font-geist-mono), monospace;
+  font-family: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
   font-size: 8px;
 }
 
@@ -924,7 +924,7 @@ button:disabled {
   color: #7e766b;
   background: #ebe6dc;
   border-top: 1px solid #d2cabc;
-  font-family: var(--font-geist-mono), monospace;
+  font-family: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
   font-size: 8px;
   letter-spacing: 0.03em;
 }

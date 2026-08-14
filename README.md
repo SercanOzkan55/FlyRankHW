@@ -2,6 +2,8 @@
 
 Branchline is a visual AI workflow editor for binary decision trees. Build a graph in React Flow, connect explicit `YES` and `NO` branches, and run the graph as a durable Inngest function. Every decision node becomes a checkpointed Inngest step and sends its prompt plus the workflow input to OpenAI.
 
+Live demo: https://decision-flow-neon.vercel.app
+
 ## What is included
 
 - React Flow canvas with draggable decision nodes and typed branch handles
@@ -31,7 +33,7 @@ In a second terminal, start the Inngest development server:
 npm run inngest:dev
 ```
 
-Open [http://localhost:3001](http://localhost:3001). The Inngest dashboard is available at [http://localhost:8288](http://localhost:8288).
+Open [http://localhost:3000](http://localhost:3000). The Inngest dashboard is available at [http://localhost:8288](http://localhost:8288).
 
 ## Environment variables
 
@@ -40,6 +42,8 @@ Open [http://localhost:3001](http://localhost:3001). The Inngest dashboard is av
 | `OPENAI_API_KEY` | No | Enables live OpenAI decisions. If omitted, runs use the labeled deterministic demo classifier. |
 | `OPENAI_MODEL` | No | OpenAI model used for decisions. Defaults to `gpt-5.5`. |
 | `INNGEST_DEV` | Local only | Routes SDK events to the local Inngest dev server. Set to `1` for local development. |
+| `INNGEST_EVENT_KEY` | Production | Sends production events to Inngest Cloud. If omitted, the Vercel demo runs locally in deterministic demo mode. |
+| `INNGEST_SIGNING_KEY` | Production | Allows Inngest Cloud to securely sync and call the production function endpoint. |
 
 Do not expose `OPENAI_API_KEY` in browser-side environment variables. It is read only inside the Inngest function.
 
@@ -76,7 +80,7 @@ lib/
 
 ## Commands
 
-- `npm run dev` - start Branchline on port 3001
+- `npm run dev` - start Branchline on port 3000
 - `npm run inngest:dev` - start Inngest and register the local function
 - `npm run build` - create the production build
 - `npm test` - build and run server-rendering and integration-shape checks

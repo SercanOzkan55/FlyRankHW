@@ -1,5 +1,6 @@
 import { createRun, updateRun } from "@/lib/execution-store";
 import { inngest } from "@/lib/inngest/client";
+import { runWorkflowPayload } from "@/lib/inngest/functions";
 import type { WorkflowRunPayload } from "@/lib/workflow-types";
 
 export async function POST(request: Request) {
@@ -20,6 +21,17 @@ export async function POST(request: Request) {
   const runId = crypto.randomUUID();
   const payload: WorkflowRunPayload = { ...body, runId };
   createRun(runId);
+
+  if (!process.env.INNGEST_EVENT_KEY && process.env.INNGEST_DEV !== "1") {
+    try {
+      await runWorkflowPayload(payload, async (_name, handler) => handler());
+      return Response.json({ runId, status: "queued", mode: "demo" }, { status: 202 });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Unable to execute workflow";
+      updateRun(runId, { status: "failed", error: message });
+      return Response.json({ runId, error: message }, { status: 500 });
+    }
+  }
 
   try {
     await inngest.send({
