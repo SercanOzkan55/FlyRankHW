@@ -7,7 +7,9 @@
     "build": "tsc",
     "start": "node dist/index.js",
     "dev": "ts-node-dev --respawn --transpile-only src/index.ts",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "worker:reports": "npm run build && node dist/reports/worker.js",
+    "reports:smoke": "node evals/report-smoke.js"
   },
   "dependencies": {
     "dotenv": "^16.4.5",
