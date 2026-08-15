@@ -106,3 +106,20 @@ writable layer — a full container recreation doesn't lose it.
 
 - Redis in the compose file, pinged from the app.
 - An index + `EXPLAIN ANALYZE` before/after comparison on a seeded table.
+
+## A8 - Task summary PDF report
+
+`POST /reports/task-summary` returns `202 Accepted` immediately. `npm run worker:reports` is a separate worker that aggregates the Postgres `tasks` table, generates a PDF artifact under `output/pdf/`, and marks the job completed with a download URL. The API never sends PDF bytes through the job queue.
+
+Install the PDF renderer once with `python -m pip install -r requirements.txt`.
+
+```powershell
+# Start the API with PostgreSQL, then run this in a second terminal.
+npm run worker:reports
+
+# Queue a report and poll its status.
+$receipt = Invoke-RestMethod -Method Post -Uri "http://localhost:3000/reports/task-summary" -Headers @{ "Idempotency-Key" = "weekly-task-summary-1" }
+Invoke-RestMethod "http://localhost:3000$($receipt.statusUrl)"
+```
+
+The final status includes `downloadUrl`. Reusing an idempotency key returns the same job rather than generating another report. With the API, Postgres, and worker running, `npm run reports:smoke` checks the `202` receipt, idempotency, terminal status, and downloadable PDF.
