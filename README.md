@@ -1,18 +1,39 @@
-# FlyRankHW
+# FlyRank Backend Track — Sercan Özkan
 
-General homework folder, one subfolder per assignment.
+Welcome to the comprehensive homework and capstone submission repository for the **FlyRank Backend Engineering Track**.
 
-- [`w1/`](w1/) — Smallest Possible Backend: a tiny Node.js server with two JSON endpoints.
-- [`a2/`](a2/) — A2 Task Service: Express + TypeScript API with a swappable in-memory /
-  Postgres repository, run via Docker Compose (app + db + persistent volume).
-- [`a3/`](a3/) — A3 Scraper: polite fetch → parse → extract → clean → structure
-  pipeline against books.toscrape.com, robots.txt-aware and rate-limited. See
-  [`a3/NOTES.md`](a3/NOTES.md) for the write-up.
-- [`a4-auth/`](a4-auth/) — A4 Auth Login & Protect: Express + TypeScript API using
-  Supabase Auth for signup/login/logout, a reusable bearer-token middleware
-  guarding `/protected/*`, and Swagger UI at `/docs`.
-- [`identity-kit/`](identity-kit/) — W3 Identity Kit: type, palette, logo
-  mark, and style note as a single self-contained page.
-- [`curated-images/`](curated-images/) — W3 Curate Your Images: the kept
-  image set, what was rejected and why, and where real captures beat
-  generated ones. See [`curated-images/README.md`](curated-images/README.md).
+👉 **[View the Complete Final Package & 10-Week Retrospective (FL-10)](./FINAL-PACKAGE.md)**
+
+---
+
+## 📑 Deliverables & Assignment Index
+
+- [`FINAL-PACKAGE.md`](./FINAL-PACKAGE.md) — **Final Track Package & Retrospective (Assignment 8.2 / FL-10)**
+- [`WEEK-10-DELIVERABLE.md`](./WEEK-10-DELIVERABLE.md) — The Plan to Keep Building (Future case study roadmap)
+- [`WEEK-03-DELIVERABLE.md`](./WEEK-03-DELIVERABLE.md) — Identity Kit, Visual System & Style Manifesto
+- [`w1/`](./w1/) — Smallest Possible Backend: Minimal Node.js HTTP server with JSON routing
+- [`a2/`](./a2/) — A2 Task Service: Express + TypeScript API with swappable in-memory / Postgres repo
+- [`a3/`](./a3/) — A3 Polite Web Scraper: Rate-limited, robots.txt-aware data pipeline ([`a3/NOTES.md`](./a3/NOTES.md))
+- [`a4-auth/`](./a4-auth/) — A4 Auth Login & Protect: Supabase Auth JWT middleware & Swagger UI docs
+- [`identity-kit/`](./identity-kit/) — Typography, palette, and brand mark design system
+- [`curated-images/`](./curated-images/) — Visual curation rationale and image rejection notes
+
+---
+
+## 🚀 Capstone Projects
+
+1. **[AI Image Understanding & Content Matching Engine](https://github.com/SercanOzkan55/flyrank-capstone-image-relevance)**  
+   *Vision metadata extraction, semantic embeddings, and Mismatch Guard safety layer with 100% eval precision.*
+
+2. **[Multi-Platform Social Campaign Publisher (Social Studio)](https://github.com/SercanOzkan55/flyrank-capstone-social-studio)**  
+   *Idempotent multi-platform publishing adapters, 429 rate limit backoff, durable queue, and HMAC-SHA256 webhooks.*
+
+3. **[CV Analyzer (10x Solution)](https://github.com/SercanOzkan55/CV-Analyzer)**  
+   *Enterprise resume intelligence platform: FastAPI, PostgreSQL, Redis, Celery background worker, and PySide6 local worker.*
+
+---
+
+## 🌐 Live Portfolio & Verification
+
+- **Live Portfolio**: [https://sercanozkan55.github.io/Portfolio/](https://sercanozkan55.github.io/Portfolio/)
+- **Graduate Badge**: [https://internship.flyrank.ai](https://internship.flyrank.ai)
